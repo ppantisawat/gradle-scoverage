@@ -60,10 +60,10 @@ class ScoverageExtension {
         scoverageScalaVersion = project.objects.property(String)
 
         dataDir = project.objects.property(File)
-        dataDir.set(new File(project.buildDir, 'scoverage'))
+        dataDir.set(project.layout.buildDirectory.dir('scoverage').get().asFile)
 
         reportDir = project.objects.property(File)
-        reportDir.set(new File(project.buildDir, ScoveragePlugin.DEFAULT_REPORT_DIR))
+        reportDir.set(project.layout.buildDirectory.dir(ScoveragePlugin.DEFAULT_REPORT_DIR).get().asFile)
 
         highlighting = project.objects.property(Boolean)
         highlighting.set(true)

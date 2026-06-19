@@ -39,7 +39,6 @@ testing {
             }
         }
         intTest(JvmTestSuite) {
-            testType = TestSuiteType.INTEGRATION_TEST
             // dependencies { ... } does not appear to work as advertised?
             sources {
                 scala {

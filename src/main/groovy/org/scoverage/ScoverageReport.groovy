@@ -44,19 +44,21 @@ class ScoverageReport extends DefaultTask {
     @Input
     final Property<Boolean> coverageDebug = project.objects.property(Boolean)
 
+    @Input
+    final Property<File> sourceRoot = project.objects.property(File)
+
     @TaskAction
     def report() {
         runner.run {
             reportDir.get().delete()
             reportDir.get().mkdirs()
 
-            def sourceRoot = getProject().getRootDir()
-            def coverage = CoverageAggregator.aggregate([dataDir.get()] as File[], sourceRoot)
+            def coverage = CoverageAggregator.aggregate([dataDir.get()] as File[], sourceRoot.get())
 
             if (coverage.isEmpty()) {
-                project.logger.info("[scoverage] Could not find coverage file, skipping...")
+                getLogger().info("[scoverage] Could not find coverage file, skipping...")
             } else {
-                new ScoverageWriter(project.logger).write(
+                new ScoverageWriter(getLogger()).write(
                         sources.get().getFiles(),
                         reportDir.get(),
                         coverage.get(),

@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 
-group 'org.scoverage'
+group = 'org.scoverage'
 description = 'gradle-scoverage is a Gradle plugin for calculating code coverage using Scoverage'
 if (project.version == 'unspecified') {
     version = '8.0.0-SNAPSHOT'
@@ -116,7 +116,7 @@ gradlePlugin {
 }
 
 task groovydocJar(type: Jar, dependsOn: groovydoc) {
-    from "$buildDir/docs/groovydoc"
+    from layout.buildDirectory.dir('docs/groovydoc')
     archiveClassifier.set('groovydoc')
 }
 
@@ -191,7 +191,7 @@ if (project.properties.containsKey('signing.keyId')) {
 task fixIdeaPluginClasspath {
     doFirst {
         configure(tasks.pluginUnderTestMetadata) {
-            def ideaClassesPath = project.buildDir.toPath().resolveSibling("out").resolve("production")
+            def ideaClassesPath = project.layout.buildDirectory.get().asFile.toPath().resolveSibling("out").resolve("production")
             def newClasspath = pluginClasspath as List
             newClasspath.add(0, ideaClassesPath)
             pluginClasspath.setFrom(newClasspath)
