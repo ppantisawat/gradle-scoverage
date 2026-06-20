@@ -4,6 +4,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Nested
@@ -14,6 +15,7 @@ import scoverage.reporter.CoverageAggregator
 
 import static org.gradle.api.tasks.PathSensitivity.RELATIVE
 
+@CacheableTask
 class ScoverageAggregate extends DefaultTask {
 
     @Nested

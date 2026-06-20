@@ -12,7 +12,7 @@ apply plugin: 'java'
 apply plugin: 'scala'
 
 dependencies {
-    if (project.getProperties().get("scalaVersionMajor").equals("2")) {
+    if (project.findProperty("scalaVersionMajor") == "2") {
         implementation group: 'org.scala-lang', name: 'scala-library', version: "${scalaVersionMajor}.${scalaVersionMinor}.${scalaVersionBuild}"
 
         testImplementation group: 'org.scalatest', name: 'scalatest_2.13', version: scalatestVersion
