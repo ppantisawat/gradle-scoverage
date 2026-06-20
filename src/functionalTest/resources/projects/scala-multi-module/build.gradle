@@ -17,12 +17,12 @@ allprojects { p ->
         dependencies {
             implementation platform(project(':dependencies'))
 
-            implementation group: 'org.scala-lang', name: 'scala-library'
+            implementation 'org.scala-lang:scala-library'
 
-            testRuntimeOnly group: 'org.junit.vintage', name: 'junit-vintage-engine'
-            testImplementation group: 'org.junit.platform', name: 'junit-platform-runner'
+            testRuntimeOnly 'org.junit.vintage:junit-vintage-engine'
+            testImplementation 'org.junit.platform:junit-platform-runner'
 
-            testImplementation group: 'org.scalatest', name: "scalatest_${scalaVersionMajor}.${scalaVersionMinor}"
+            testImplementation "org.scalatest:scalatest_${scalaVersionMajor}.${scalaVersionMinor}"
         }
 
         test {

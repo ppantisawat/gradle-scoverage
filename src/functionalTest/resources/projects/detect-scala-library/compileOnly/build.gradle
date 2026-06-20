@@ -9,5 +9,5 @@ repositories {
 description = 'defines scala library using the "compileOnly" configuration'
 
 dependencies {
-    compileOnly group: 'org.scala-lang', name: 'scala-library', version: "${detectedScalaLibraryVersion}"
+    compileOnly "org.scala-lang:scala-library:${detectedScalaLibraryVersion}"
 }

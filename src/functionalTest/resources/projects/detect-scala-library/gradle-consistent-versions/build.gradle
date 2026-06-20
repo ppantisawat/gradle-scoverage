@@ -10,7 +10,7 @@ repositories {
 description = 'defines scala library using the "implementation" configuration and the gradle-consistent-versions plugin'
 
 dependencies {
-    implementation group: 'org.scala-lang', name: 'scala-library'
+    implementation 'org.scala-lang:scala-library'
 }
 
 scoverage {

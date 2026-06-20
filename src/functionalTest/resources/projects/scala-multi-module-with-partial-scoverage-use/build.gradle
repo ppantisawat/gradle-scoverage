@@ -18,11 +18,11 @@ allprojects { p ->
 
     dependencies {
 
-        implementation group: 'org.scala-lang', name: 'scala-library', version: "${scalaVersionMajor}.${scalaVersionMinor}.${scalaVersionBuild}"
+        implementation "org.scala-lang:scala-library:${scalaVersionMajor}.${scalaVersionMinor}.${scalaVersionBuild}"
 
-        testImplementation group: 'org.junit.platform', name: 'junit-platform-runner'
+        testImplementation 'org.junit.platform:junit-platform-runner'
 
-        testImplementation group: 'org.scalatest', name: "scalatest_${scalaVersionMajor}.${scalaVersionMinor}"
+        testImplementation "org.scalatest:scalatest_${scalaVersionMajor}.${scalaVersionMinor}"
     }
 }
 
