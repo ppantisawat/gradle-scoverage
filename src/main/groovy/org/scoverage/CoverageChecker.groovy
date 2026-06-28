@@ -3,7 +3,6 @@ package org.scoverage
 import groovy.xml.XmlParser
 import org.gradle.api.GradleException
 import org.gradle.api.logging.Logger
-import org.gradle.internal.impldep.com.google.common.annotations.VisibleForTesting
 
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -77,7 +76,6 @@ class CoverageChecker {
         }
     }
 
-    @VisibleForTesting
     protected static String errorMsg(double overallRate, double minimumRate, CoverageType type) {
         DecimalFormat df = new DecimalFormat("#.##", DecimalFormatSymbols.getInstance(Locale.US))
         String actual = df.format(overallRate * 100)
@@ -85,7 +83,6 @@ class CoverageChecker {
         "Only $actual% of project is covered by tests instead of $expected% (coverageType: $type)"
     }
 
-    @VisibleForTesting
     protected static String fileNotFoundErrorMsg(CoverageType coverageType) {
         "Coverage file (type: $coverageType) not found, check your configuration."
     }

@@ -8,7 +8,7 @@ repositories {
     mavenCentral()
 }
 
-group 'org.scoverage'
+group = 'org.scoverage'
 description = 'gradle-scoverage is a Gradle plugin for calculating code coverage using Scoverage'
 if (project.version == 'unspecified') {
     version = '8.0.0-SNAPSHOT'
@@ -48,8 +48,10 @@ dependencies {
     compileOnly 'org.scoverage:scalac-scoverage-plugin_2.13.14:2.1.1'
     compileOnly 'org.scoverage:scalac-scoverage-reporter_2.13:2.1.1'
 
-    implementation group: 'commons-io', name: 'commons-io', version: '2.6'
+    implementation 'commons-io:commons-io:2.6'
 
+    testImplementation localGroovy()
+    testImplementation gradleApi()
     testImplementation 'junit:junit:4.12'
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.5.2'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.5.2'
@@ -116,7 +118,7 @@ gradlePlugin {
 }
 
 task groovydocJar(type: Jar, dependsOn: groovydoc) {
-    from "$buildDir/docs/groovydoc"
+    from layout.buildDirectory.dir('docs/groovydoc')
     archiveClassifier.set('groovydoc')
 }
 
@@ -179,7 +181,7 @@ publishing {
     }
 }
 
-if (project.properties.containsKey('signing.keyId')) {
+if (project.hasProperty('signing.keyId')) {
     apply plugin: 'signing'
     signing {
         sign publishing.publications.mavenJava
@@ -191,7 +193,7 @@ if (project.properties.containsKey('signing.keyId')) {
 task fixIdeaPluginClasspath {
     doFirst {
         configure(tasks.pluginUnderTestMetadata) {
-            def ideaClassesPath = project.buildDir.toPath().resolveSibling("out").resolve("production")
+            def ideaClassesPath = project.layout.buildDirectory.get().asFile.toPath().resolveSibling("out").resolve("production")
             def newClasspath = pluginClasspath as List
             newClasspath.add(0, ideaClassesPath)
             pluginClasspath.setFrom(newClasspath)

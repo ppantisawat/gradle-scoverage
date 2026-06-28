@@ -1,5 +1,5 @@
 plugins {
-    id 'io.spring.dependency-management' version "1.1.5"
+    id 'io.spring.dependency-management' version "1.1.7"
     id 'org.scoverage'
 }
 
@@ -20,12 +20,12 @@ dependencyManagement {
 }
 
 dependencies {
-    implementation group: 'org.scala-lang', name: 'scala-library'
+    implementation 'org.scala-lang:scala-library'
 
-    testRuntimeOnly group: 'org.junit.vintage', name: 'junit-vintage-engine', version: junitVersion
-    testImplementation group: 'org.junit.platform', name: 'junit-platform-runner', version: junitPlatformVersion
+    testRuntimeOnly "org.junit.vintage:junit-vintage-engine:$junitVersion"
+    testImplementation "org.junit.platform:junit-platform-runner:$junitPlatformVersion"
 
-    testImplementation group: 'org.scalatest', name: "scalatest_${scalaVersionMajor}.${scalaVersionMinor}", version: scalatestVersion
+    testImplementation "org.scalatest:scalatest_${scalaVersionMajor}.${scalaVersionMinor}:$scalatestVersion"
 }
 
 test {

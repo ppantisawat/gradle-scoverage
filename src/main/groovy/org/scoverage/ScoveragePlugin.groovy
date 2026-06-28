@@ -124,7 +124,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 testTask.mustRunAfter(compileTask)
 
                 def reportTaskName = "report${testTask.name.capitalize()}Scoverage"
-                def taskReportDir = project.file("${project.buildDir}/reports/scoverage${testTask.name.capitalize()}")
+                def taskReportDir = project.layout.buildDirectory.dir("reports/scoverage${testTask.name.capitalize()}").get().asFile
 
                 project.tasks.create(reportTaskName, ScoverageReport) {
                     dependsOn originalJarTask, compileTask, testTask
@@ -135,6 +135,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     sources = originalSourceSet.scala.getSourceDirectories()
                     dataDir = extension.dataDir
                     sourceEncoding.set(detectedSourceEncoding)
+                    sourceRoot.set(project.rootDir)
                     coverageOutputCobertura = extension.coverageOutputCobertura
                     coverageOutputXML = extension.coverageOutputXML
                     coverageOutputHTML = extension.coverageOutputHTML
@@ -154,6 +155,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 sources = originalSourceSet.scala.getSourceDirectories()
                 dirsToAggregateFrom = dataDirs
                 sourceEncoding.set(detectedSourceEncoding)
+                sourceRoot.set(project.rootDir)
                 deleteReportsOnAggregation = false
                 coverageOutputCobertura = extension.coverageOutputCobertura
                 coverageOutputXML = extension.coverageOutputXML
@@ -319,6 +321,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                         reportDir = extension.reportDir
                         sources = allSources
                         sourceEncoding.set(detectedSourceEncoding)
+                        sourceRoot.set(project.rootDir)
                         dirsToAggregateFrom = dataDirs
                         deleteReportsOnAggregation = extension.deleteReportsOnAggregation
                         coverageOutputCobertura = extension.coverageOutputCobertura

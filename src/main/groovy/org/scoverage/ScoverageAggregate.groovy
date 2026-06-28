@@ -4,6 +4,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Nested
@@ -14,6 +15,7 @@ import scoverage.reporter.CoverageAggregator
 
 import static org.gradle.api.tasks.PathSensitivity.RELATIVE
 
+@CacheableTask
 class ScoverageAggregate extends DefaultTask {
 
     @Nested
@@ -45,6 +47,9 @@ class ScoverageAggregate extends DefaultTask {
     @Input
     final Property<Boolean> coverageDebug = project.objects.property(Boolean)
 
+    @Input
+    final Property<File> sourceRoot = project.objects.property(File)
+
     ScoverageAggregate() {
         dirsToAggregateFrom.set([project.extensions.scoverage.dataDir.get()])
     }
@@ -57,11 +62,10 @@ class ScoverageAggregate extends DefaultTask {
 
             def dirs = []
             dirs.addAll(dirsToAggregateFrom.get())
-            def sourceRoot = getProject().getRootDir()
-            def coverage = CoverageAggregator.aggregate(dirs.unique() as File[], sourceRoot)
+            def coverage = CoverageAggregator.aggregate(dirs.unique() as File[], sourceRoot.get())
 
             if (coverage.nonEmpty()) {
-                new ScoverageWriter(project.logger).write(
+                new ScoverageWriter(getLogger()).write(
                         sources.get().getFiles(),
                         reportDir.get(),
                         coverage.get(),
