@@ -252,44 +252,65 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 finalizedBy(pruneIdenticalScoverageClasses)
             }
 
-            // define aggregation task
             if (!project.subprojects.empty) {
-                project.gradle.projectsEvaluated {
-                    project.subprojects.each {
-                        if (it.plugins.hasPlugin(ScalaPlugin) && !it.plugins.hasPlugin(ScoveragePlugin)) {
-                            it.logger.warn("Scala sub-project '${it.name}' doesn't have Scoverage applied and will be ignored in parent project aggregation")
-                        }
-                    }
-                    def childReportTasks = project.subprojects.findResults {
-                        it.tasks.find { task ->
-                            task.name == REPORT_NAME && task instanceof ScoverageAggregate
-                        }
-                    }
-                    def allReportTasks = childReportTasks + globalReportTask.get()
-                    def allSources = project.objects.fileCollection()
-                    allReportTasks.each {
-                        allSources = allSources.plus(it.sources.get())
-                    }
-                    def aggregationTask = project.tasks.create(AGGREGATE_NAME, ScoverageAggregate) {
-                        def dataDirs = allReportTasks.findResults { it.dirsToAggregateFrom.get() }.flatten()
-                        onlyIf {
-                            !childReportTasks.empty
-                        }
-                        dependsOn(allReportTasks)
-                        group = 'verification'
-                        runner.set(scoverageRunner)
-                        reportDir.set(extension.reportDir.get())
-                        sources.set(allSources)
-                        sourceEncoding.set(detectedSourceEncoding)
-                        sourceRoot.set(project.rootDir)
-                        dirsToAggregateFrom.set(dataDirs)
-                        deleteReportsOnAggregation.set(extension.deleteReportsOnAggregation.get())
-                        coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
-                        coverageOutputXML.set(extension.coverageOutputXML.get())
-                        coverageOutputHTML.set(extension.coverageOutputHTML.get())
-                        coverageDebug.set(extension.coverageDebug.get())
-                    }
-                    project.tasks[CHECK_NAME].mustRunAfter(aggregationTask)
+                configureRootAggregation(
+                        project,
+                        extension,
+                        scoverageRunner,
+                        detectedSourceEncoding,
+                        globalReportTask,
+                        globalCheckTask
+                )
+            }
+        }
+    }
+
+    private void configureRootAggregation(Project project,
+                                          ScoverageExtension extension,
+                                          ScoverageRunner scoverageRunner,
+                                          String detectedSourceEncoding,
+                                          TaskProvider<ScoverageAggregate> globalReportTask,
+                                          TaskProvider<CheckScoverageTask> globalCheckTask) {
+        def aggregatedSources = project.objects.fileCollection()
+        if (project.plugins.hasPlugin(ScalaPlugin)) {
+            aggregatedSources.from(project.sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME).scala.sourceDirectories)
+        }
+        def aggregateTask = project.tasks.register(AGGREGATE_NAME, ScoverageAggregate) {
+            dependsOn(globalReportTask)
+            group = 'verification'
+            runner.set(scoverageRunner)
+            reportDir.set(extension.reportDir.get())
+            sources.set(aggregatedSources)
+            sourceEncoding.set(detectedSourceEncoding)
+            sourceRoot.set(project.rootDir)
+            deleteReportsOnAggregation.set(extension.deleteReportsOnAggregation.get())
+            coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
+            coverageOutputXML.set(extension.coverageOutputXML.get())
+            coverageOutputHTML.set(extension.coverageOutputHTML.get())
+            coverageDebug.set(extension.coverageDebug.get())
+            dirsToAggregateFrom.add(extension.dataDir.get())
+            onlyIf {
+                project.subprojects.any { it.plugins.hasPlugin(ScoveragePlugin) }
+            }
+        }
+
+        globalCheckTask.configure {
+            mustRunAfter(aggregateTask)
+        }
+
+        project.subprojects.each { sub ->
+            sub.plugins.withId('scala') {
+                if (!sub.plugins.hasPlugin(ScoveragePlugin)) {
+                    sub.logger.warn("Scala sub-project '${sub.name}' doesn't have Scoverage applied and will be ignored in parent project aggregation")
+                }
+            }
+            sub.plugins.withId('org.scoverage') {
+                aggregateTask.configure { aggregationTask ->
+                    aggregationTask.dependsOn(sub.tasks.named(REPORT_NAME))
+                    aggregatedSources.from(
+                            sub.sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME).scala.sourceDirectories
+                    )
+                    aggregationTask.dirsToAggregateFrom.add(sub.extensions.scoverage.dataDir.get())
                 }
             }
         }
