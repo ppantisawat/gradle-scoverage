@@ -23,6 +23,10 @@ class ScoveragePlugin implements Plugin<PluginAware> {
 
     static final String DEFAULT_REPORT_DIR = 'reports' + File.separatorChar + 'scoverage'
 
+    static String scoverageTestTaskName(String testTaskName) {
+        return ScoverageTestSupport.scoverageTestTaskName(testTaskName)
+    }
+
     @Override
     void apply(PluginAware pluginAware) {
         if (pluginAware instanceof Project) {
@@ -110,16 +114,33 @@ class ScoveragePlugin implements Plugin<PluginAware> {
 
             // calling toList() on TaskCollection is required
             // to avoid potential ConcurrentModificationException in multi-project builds
-            def testTasks = project.tasks.withType(Test).toList()
+            def testTasks = project.tasks.withType(Test).matching { testTask ->
+                !ScoverageTestSupport.isScoverageTestTask(testTask.name)
+            }.toList()
+
+            testTasks.each { testTask ->
+                ScoverageTestSupport.registerScoverageTest(
+                        project,
+                        testTask,
+                        instrumentedSourceSet,
+                        CONFIGURATION_NAME,
+                        compileTask,
+                        extension
+                )
+            }
 
             List<ScoverageReport> reportTasks = testTasks.collect { testTask ->
                 testTask.mustRunAfter(compileTask)
 
                 def reportTaskName = "report${testTask.name.capitalize()}Scoverage"
                 def taskReportDir = project.layout.buildDirectory.dir("reports/scoverage${testTask.name.capitalize()}").get().asFile
+                def scoverageTestTask = project.tasks.named(
+                        ScoverageTestSupport.scoverageTestTaskName(testTask.name),
+                        Test
+                )
 
                 project.tasks.create(reportTaskName, ScoverageReport) {
-                    dependsOn originalJarTask, compileTask, testTask
+                    dependsOn originalJarTask, compileTask, scoverageTestTask
                     onlyIf { extension.dataDir.get().list() }
                     group = 'verification'
                     runner.set(scoverageRunner)
@@ -216,7 +237,9 @@ class ScoveragePlugin implements Plugin<PluginAware> {
             def pruneIdenticalScoverageClasses = project.tasks.register('pruneIdenticalScoverageClasses', PruneIdenticalScoverageClassesTask) {
                 dependsOn compileTask
                 onlyIf {
-                    resolveScalaVersions(project).majorVersion < 3
+                    resolveScalaVersions(project).majorVersion < 3 &&
+                            originalCompileTask.destinationDirectory.get().asFile.exists() &&
+                            compileTask.destinationDirectory.get().asFile.exists()
                 }
                 originalClassesDirectory.set(originalCompileTask.destinationDirectory)
                 instrumentedClassesDirectory.set(compileTask.destinationDirectory)
@@ -227,29 +250,6 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     destinationDirectory.get().getAsFile().deleteDir()
                 }
                 finalizedBy(pruneIdenticalScoverageClasses)
-            }
-
-            project.gradle.taskGraph.whenReady { graph ->
-                def hasAnyReportTask = reportTasks.any { graph.hasTask(it) }
-
-                if (hasAnyReportTask) {
-                    project.tasks.withType(Test).each { testTask ->
-                        testTask.configure {
-                            project.logger.info("Adding instrumented classes to '${path}' classpath")
-
-                            classpath = project.configurations.scoverage + instrumentedSourceSet.output + classpath
-
-                            outputs.upToDateWhen {
-                                extension.dataDir.get().listFiles(new FilenameFilter() {
-                                    @Override
-                                    boolean accept(File dir, String name) {
-                                        name.startsWith("scoverage.measurements.")
-                                    }
-                                })
-                            }
-                        }
-                    }
-                }
             }
 
             // define aggregation task
