@@ -130,16 +130,16 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     dependsOn originalJarTask, compileTask, testTask
                     onlyIf { extension.dataDir.get().list() }
                     group = 'verification'
-                    runner = scoverageRunner
-                    reportDir = taskReportDir
-                    sources = originalSourceSet.scala.getSourceDirectories()
-                    dataDir = extension.dataDir
+                    runner.set(scoverageRunner)
+                    reportDir.set(taskReportDir)
+                    sources.set(originalSourceSet.scala.getSourceDirectories())
+                    dataDir.set(extension.dataDir.get())
                     sourceEncoding.set(detectedSourceEncoding)
                     sourceRoot.set(project.rootDir)
-                    coverageOutputCobertura = extension.coverageOutputCobertura
-                    coverageOutputXML = extension.coverageOutputXML
-                    coverageOutputHTML = extension.coverageOutputHTML
-                    coverageDebug = extension.coverageDebug
+                    coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
+                    coverageOutputXML.set(extension.coverageOutputXML.get())
+                    coverageOutputHTML.set(extension.coverageOutputHTML.get())
+                    coverageDebug.set(extension.coverageDebug.get())
                 }
             }
 
@@ -150,17 +150,17 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 onlyIf { dataDirs.any { it.list() } }
 
                 group = 'verification'
-                runner = scoverageRunner
-                reportDir = extension.reportDir
-                sources = originalSourceSet.scala.getSourceDirectories()
-                dirsToAggregateFrom = dataDirs
+                runner.set(scoverageRunner)
+                reportDir.set(extension.reportDir.get())
+                sources.set(originalSourceSet.scala.getSourceDirectories())
+                dirsToAggregateFrom.set(dataDirs)
                 sourceEncoding.set(detectedSourceEncoding)
                 sourceRoot.set(project.rootDir)
-                deleteReportsOnAggregation = false
-                coverageOutputCobertura = extension.coverageOutputCobertura
-                coverageOutputXML = extension.coverageOutputXML
-                coverageOutputHTML = extension.coverageOutputHTML
-                coverageDebug = extension.coverageDebug
+                deleteReportsOnAggregation.set(false)
+                coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
+                coverageOutputXML.set(extension.coverageOutputXML.get())
+                coverageOutputHTML.set(extension.coverageOutputHTML.get())
+                coverageDebug.set(extension.coverageDebug.get())
             }
 
             configureCheckTask(project, extension, globalCheckTask, globalReportTask)
@@ -317,17 +317,17 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                         }
                         dependsOn(allReportTasks)
                         group = 'verification'
-                        runner = scoverageRunner
-                        reportDir = extension.reportDir
-                        sources = allSources
+                        runner.set(scoverageRunner)
+                        reportDir.set(extension.reportDir.get())
+                        sources.set(allSources)
                         sourceEncoding.set(detectedSourceEncoding)
                         sourceRoot.set(project.rootDir)
-                        dirsToAggregateFrom = dataDirs
-                        deleteReportsOnAggregation = extension.deleteReportsOnAggregation
-                        coverageOutputCobertura = extension.coverageOutputCobertura
-                        coverageOutputXML = extension.coverageOutputXML
-                        coverageOutputHTML = extension.coverageOutputHTML
-                        coverageDebug = extension.coverageDebug
+                        dirsToAggregateFrom.set(dataDirs)
+                        deleteReportsOnAggregation.set(extension.deleteReportsOnAggregation.get())
+                        coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
+                        coverageOutputXML.set(extension.coverageOutputXML.get())
+                        coverageOutputHTML.set(extension.coverageOutputHTML.get())
+                        coverageDebug.set(extension.coverageDebug.get())
                     }
                     project.tasks[CHECK_NAME].mustRunAfter(aggregationTask)
                 }
