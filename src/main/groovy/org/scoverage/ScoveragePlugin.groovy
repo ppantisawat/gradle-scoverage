@@ -59,26 +59,30 @@ class ScoveragePlugin implements Plugin<PluginAware> {
             }
 
             project.afterEvaluate {
-                def scalaVersion = resolveScalaVersions(project)
-
-                def scoverageVersion = project.extensions.scoverage.scoverageVersion.get()
-                project.logger.info("Using scoverage scalac plugin $scoverageVersion for scala $scalaVersion")
-
-                def scalacScoverageVersion = scalaVersion.scalacScoverageVersion
-                def scalacScoveragePluginVersion = scalaVersion.scalacScoveragePluginVersion
-                def scalacScoverageRuntimeVersion = scalaVersion.scalacScoverageRuntimeVersion
-
-                project.dependencies {
-                    scoverage("org.scoverage:scalac-scoverage-domain_$scalacScoverageVersion:$scoverageVersion")
-                    scoverage("org.scoverage:scalac-scoverage-reporter_$scalacScoverageVersion:$scoverageVersion")
-                    scoverage("org.scoverage:scalac-scoverage-serializer_$scalacScoverageVersion:$scoverageVersion")
-                    scoverage("org.scoverage:scalac-scoverage-runtime_$scalacScoverageRuntimeVersion:$scoverageVersion")
-                    scoverage("org.scoverage:scalac-scoverage-plugin_$scalacScoveragePluginVersion:$scoverageVersion")
-                }
+                configureScoverageDependencies(project)
             }
         }
 
         createTasks(project, extension)
+    }
+
+    private void configureScoverageDependencies(Project project) {
+        def scalaVersion = resolveScalaVersions(project)
+
+        def scoverageVersion = project.extensions.scoverage.scoverageVersion.get()
+        project.logger.info("Using scoverage scalac plugin $scoverageVersion for scala $scalaVersion")
+
+        def scalacScoverageVersion = scalaVersion.scalacScoverageVersion
+        def scalacScoveragePluginVersion = scalaVersion.scalacScoveragePluginVersion
+        def scalacScoverageRuntimeVersion = scalaVersion.scalacScoverageRuntimeVersion
+
+        project.dependencies {
+            scoverage("org.scoverage:scalac-scoverage-domain_$scalacScoverageVersion:$scoverageVersion")
+            scoverage("org.scoverage:scalac-scoverage-reporter_$scalacScoverageVersion:$scoverageVersion")
+            scoverage("org.scoverage:scalac-scoverage-serializer_$scalacScoverageVersion:$scoverageVersion")
+            scoverage("org.scoverage:scalac-scoverage-runtime_$scalacScoverageRuntimeVersion:$scoverageVersion")
+            scoverage("org.scoverage:scalac-scoverage-plugin_$scalacScoveragePluginVersion:$scoverageVersion")
+        }
     }
 
     private void createTasks(Project project, ScoverageExtension extension) {
