@@ -77,6 +77,12 @@ public abstract class ScoverageFunctionalTest {
         return new AssertableBuildResult(runner.build());
     }
 
+    protected AssertableBuildResult runWithConfigurationCache(String... arguments) {
+
+        configureConfigurationCacheArguments(arguments);
+        return new AssertableBuildResult(runner.build());
+    }
+
     protected AssertableBuildResult runAndFail(String... arguments) {
 
         configureArguments(arguments);
@@ -121,7 +127,22 @@ public abstract class ScoverageFunctionalTest {
 
     private void configureArguments(String... arguments) {
 
+        configureArguments(false, arguments);
+    }
+
+    private void configureConfigurationCacheArguments(String... arguments) {
+
+        configureArguments(true, arguments);
+    }
+
+    private void configureArguments(boolean configurationCache, String... arguments) {
+
         List<String> fullArguments = new ArrayList<>(getVersionAgruments());
+
+        if (configurationCache) {
+            fullArguments.add("--configuration-cache");
+            fullArguments.add("--configuration-cache-problems=fail");
+        }
 
         if (Boolean.parseBoolean(System.getProperty("failOnWarning"))) {
             fullArguments.add("--warning-mode=fail");
@@ -200,6 +221,23 @@ public abstract class ScoverageFunctionalTest {
 
             Pattern regex = Pattern.compile("^(> Task )?" + fullTaskName(taskName), Pattern.MULTILINE);
             return regex.matcher(result.getOutput()).find();
+        }
+
+        public void assertConfigurationCacheStored() {
+
+            Assert.assertTrue(
+                    "Expected configuration cache to be stored",
+                    result.getOutput().contains("Configuration cache entry stored")
+                            || result.getOutput().contains("Calculating task graph as no cached configuration is available")
+            );
+        }
+
+        public void assertConfigurationCacheReused() {
+
+            Assert.assertTrue(
+                    "Expected configuration cache to be reused",
+                    result.getOutput().contains("Reusing configuration cache")
+            );
         }
     }
 }
