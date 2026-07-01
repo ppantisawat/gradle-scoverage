@@ -1,9 +1,7 @@
 package org.scoverage
 
-import org.apache.commons.io.FileUtils
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.Task
 import org.gradle.api.invocation.Gradle
 import org.gradle.api.plugins.PluginAware
 import org.gradle.api.plugins.scala.ScalaPlugin
@@ -11,10 +9,7 @@ import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.api.tasks.testing.Test
 
-import java.nio.file.Files
-import java.util.concurrent.ConcurrentHashMap
-
-import static groovy.io.FileType.FILES
+import java.util.Optional
 
 class ScoveragePlugin implements Plugin<PluginAware> {
 
@@ -27,9 +22,6 @@ class ScoveragePlugin implements Plugin<PluginAware> {
     static final String SCOVERAGE_COMPILE_ONLY_PROPERTY = 'scoverageCompileOnly';
 
     static final String DEFAULT_REPORT_DIR = 'reports' + File.separatorChar + 'scoverage'
-
-    private final ConcurrentHashMap<Task, Set<? extends Task>> crossProjectTaskDependencies = new ConcurrentHashMap<>()
-    private final ConcurrentHashMap<Task, Set<? extends Task>> sameProjectTaskDependencies = new ConcurrentHashMap<>()
 
     @Override
     void apply(PluginAware pluginAware) {
@@ -108,7 +100,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
         compileTask.mustRunAfter(originalCompileTask)
 
         def globalReportTask = project.tasks.register(REPORT_NAME, ScoverageAggregate)
-        def globalCheckTask = project.tasks.register(CHECK_NAME)
+        def globalCheckTask = project.tasks.register(CHECK_NAME, CheckScoverageTask)
 
         project.afterEvaluate {
             def detectedSourceEncoding = compileTask.scalaCompileOptions.encoding
@@ -192,19 +184,19 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     outputs.file(new File(extension.dataDir.get(), 'scoverage.coverage'))
 
                     dependsOn project.configurations[CONFIGURATION_NAME]
+                    def scoverageClasspath = project.configurations[CONFIGURATION_NAME]
                     doFirst {
-                        /*
-                            It is crucial that this would run in `doFirst`, as this resolves the (dependencies of the)
-                            configuration, which we do not want to do at configuration time (but only at execution time).
-                         */
-                        def pluginFiles = project.configurations[CONFIGURATION_NAME].findAll {
-                            it.name.startsWith("scalac-scoverage-plugin") ||
-                            it.name.startsWith("scalac-scoverage-domain") ||
-                            it.name.startsWith("scalac-scoverage-serializer")
-                        }.collect {
-                            it.absolutePath
+                        def pluginFiles = scoverageClasspath.files.findAll { file ->
+                            def name = file.name
+                            name.startsWith('scalac-scoverage-plugin') ||
+                                    name.startsWith('scalac-scoverage-domain') ||
+                                    name.startsWith('scalac-scoverage-serializer')
+                        }.collect { it.absolutePath }
+                        if (!pluginFiles.isEmpty()) {
+                            scalaCompileOptions.additionalParameters.add(
+                                    '-Xplugin:' + pluginFiles.join(File.pathSeparator)
+                            )
                         }
-                        scalaCompileOptions.additionalParameters.add('-Xplugin:' + pluginFiles.join(File.pathSeparator))
                     }
                 } else {
                     parameters.add("-sourceroot:${project.rootDir.absolutePath}".toString())
@@ -221,52 +213,20 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 }
             }
 
+            def pruneIdenticalScoverageClasses = project.tasks.register('pruneIdenticalScoverageClasses', PruneIdenticalScoverageClassesTask) {
+                dependsOn compileTask
+                onlyIf {
+                    resolveScalaVersions(project).majorVersion < 3
+                }
+                originalClassesDirectory.set(originalCompileTask.destinationDirectory)
+                instrumentedClassesDirectory.set(compileTask.destinationDirectory)
+            }
+
             compileTask.configure {
                 doFirst {
                     destinationDirectory.get().getAsFile().deleteDir()
                 }
-
-                // delete non-instrumented classes by comparing normally compiled classes to those compiled with scoverage
-                doLast {
-                    project.logger.info("Deleting classes compiled by scoverage but non-instrumented (identical to normal compilation)")
-                    def originalCompileTaskName = project.sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME)
-                            .getCompileTaskName("scala")
-                    def originalDestinationDirectory = project.tasks[originalCompileTaskName].destinationDirectory
-                    def originalDestinationDir = originalDestinationDirectory.get().asFile
-                    def destinationDir = destinationDirectory.get().asFile
-
-
-                    def findFiles = { File dir, Closure<Boolean> condition = null ->
-                        def files = []
-
-                        if (dir.exists()) {
-                            dir.eachFileRecurse(FILES) { f ->
-                                if (condition == null || condition(f)) {
-                                    def relativePath = dir.relativePath(f)
-                                    files << relativePath
-                                }
-                            }
-                        }
-
-                        files
-                    }
-
-                    def isSameFile = { String relativePath ->
-                        def fileA = new File(originalDestinationDir, relativePath)
-                        def fileB = new File(destinationDir, relativePath)
-                        FileUtils.contentEquals(fileA, fileB)
-                    }
-
-                    def originalClasses = findFiles(originalDestinationDir)
-                    def identicalInstrumentedClasses = findFiles(destinationDir, { f ->
-                        def relativePath = destinationDir.relativePath(f)
-                        originalClasses.contains(relativePath) && isSameFile(relativePath)
-                    })
-
-                    identicalInstrumentedClasses.each { f ->
-                        Files.deleteIfExists(destinationDir.toPath().resolve(f))
-                    }
-                }
+                finalizedBy(pruneIdenticalScoverageClasses)
             }
 
             project.gradle.taskGraph.whenReady { graph ->
@@ -336,7 +296,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
     }
 
     private void configureCheckTask(Project project, ScoverageExtension extension,
-                                    TaskProvider<Task> globalCheckTask,
+                                    TaskProvider<CheckScoverageTask> globalCheckTask,
                                     TaskProvider<ScoverageAggregate> globalReportTask) {
 
         if (extension.checks.isEmpty()) {
@@ -348,20 +308,14 @@ class ScoveragePlugin implements Plugin<PluginAware> {
             throw new IllegalArgumentException("Check configuration should be defined in either the new or the old syntax exclusively, not together")
         }
 
-        def checker = new CoverageChecker(project.logger)
-
         globalCheckTask.configure {
             group = 'verification'
             dependsOn globalReportTask
             onlyIf { extension.reportDir.get().list() }
-        }
-
-        extension.checks.each { config ->
-            globalCheckTask.configure {
-                doLast {
-                    checker.checkLineCoverage(extension.reportDir.get(), config.coverageType, config.minimumRate.doubleValue())
-                }
-            }
+            reportDir.set(extension.reportDir.get())
+            checks.set(extension.checks.collect { config ->
+                new CheckScoverageTask.CheckSpec(config.coverageType.configurationName, config.minimumRate)
+            })
         }
     }
 
