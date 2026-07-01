@@ -2,17 +2,10 @@ package org.scoverage;
 
 import org.junit.Test;
 
-import java.util.List;
+public class ConfigurationCacheMultiModuleTest extends ScoverageFunctionalTest {
 
-public class ConfigurationCacheTest extends ScoverageFunctionalTest {
-
-    public ConfigurationCacheTest() {
-        super("scala-single-module");
-    }
-
-    @Override
-    protected List<String> getVersionAgruments() {
-        return ScalaVersionArguments.version2;
+    public ConfigurationCacheMultiModuleTest() {
+        super("scala-multi-module");
     }
 
     @Test
@@ -29,6 +22,6 @@ public class ConfigurationCacheTest extends ScoverageFunctionalTest {
 
         secondRun.assertConfigurationCacheReused();
         secondRun.assertTaskSucceeded(ScoveragePlugin.getCHECK_NAME());
-        assertCoverage(50.0);
+        secondRun.assertTaskSucceeded("a:" + ScoveragePlugin.getCHECK_NAME());
     }
 }

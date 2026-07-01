@@ -111,10 +111,18 @@ class ScoveragePlugin implements Plugin<PluginAware> {
         def globalCheckTask = project.tasks.register(CHECK_NAME, CheckScoverageTask)
 
         project.afterEvaluate {
+            def scoverageDataDir = extension.dataDir
+            def scoverageReportDir = extension.reportDir
+            def projectRootDir = project.rootDir
+            def hasScoverageSubproject = project.objects.property(Boolean)
+            hasScoverageSubproject.set(false)
+
             def detectedSourceEncoding = compileTask.scalaCompileOptions.encoding
             if (detectedSourceEncoding == null) {
                 detectedSourceEncoding = "UTF-8"
             }
+
+            def scalaVersion = resolveScalaVersions(project)
 
             // calling toList() on TaskCollection is required
             // to avoid potential ConcurrentModificationException in multi-project builds
@@ -129,7 +137,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                         instrumentedSourceSet,
                         CONFIGURATION_NAME,
                         compileTask,
-                        extension
+                        scoverageDataDir
                 )
             }
 
@@ -145,14 +153,14 @@ class ScoveragePlugin implements Plugin<PluginAware> {
 
                 project.tasks.create(reportTaskName, ScoverageReport) {
                     dependsOn originalJarTask, compileTask, scoverageTestTask
-                    onlyIf { extension.dataDir.get().list() }
+                    onlyIf { scoverageDataDir.get().list() }
                     group = 'verification'
                     runner.set(scoverageRunner)
                     reportDir.set(taskReportDir)
                     sources.set(originalSourceSet.scala.getSourceDirectories())
-                    dataDir.set(extension.dataDir.get())
+                    dataDir.set(scoverageDataDir.get())
                     sourceEncoding.set(detectedSourceEncoding)
-                    sourceRoot.set(project.rootDir)
+                    sourceRoot.set(projectRootDir)
                     coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
                     coverageOutputXML.set(extension.coverageOutputXML.get())
                     coverageOutputHTML.set(extension.coverageOutputHTML.get())
@@ -168,11 +176,11 @@ class ScoveragePlugin implements Plugin<PluginAware> {
 
                 group = 'verification'
                 runner.set(scoverageRunner)
-                reportDir.set(extension.reportDir.get())
+                reportDir.set(scoverageReportDir.get())
                 sources.set(originalSourceSet.scala.getSourceDirectories())
                 dirsToAggregateFrom.set(dataDirs)
                 sourceEncoding.set(detectedSourceEncoding)
-                sourceRoot.set(project.rootDir)
+                sourceRoot.set(projectRootDir)
                 deleteReportsOnAggregation.set(false)
                 coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
                 coverageOutputXML.set(extension.coverageOutputXML.get())
@@ -180,7 +188,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 coverageDebug.set(extension.coverageDebug.get())
             }
 
-            configureCheckTask(project, extension, globalCheckTask, globalReportTask)
+            configureCheckTask(extension, globalCheckTask, globalReportTask, scoverageReportDir)
 
             compileTask.configure {
                 List<String> parameters = []
@@ -189,10 +197,9 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     parameters.addAll(existingParameters)
                 }
 
-                def scalaVersion = resolveScalaVersions(project)
                 if (scalaVersion.majorVersion < 3) {
-                    parameters.add("-P:scoverage:dataDir:${extension.dataDir.get().absolutePath}".toString())
-                    parameters.add("-P:scoverage:sourceRoot:${extension.project.getRootDir().absolutePath}".toString())
+                    parameters.add("-P:scoverage:dataDir:${scoverageDataDir.get().absolutePath}".toString())
+                    parameters.add("-P:scoverage:sourceRoot:${projectRootDir.absolutePath}".toString())
                     if (extension.excludedPackages.get()) {
                         def packages = extension.excludedPackages.get().join(';')
                         parameters.add("-P:scoverage:excludedPackages:$packages".toString())
@@ -206,7 +213,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                     }
                     scalaCompileOptions.additionalParameters = parameters
                     // the compile task creates a store of measured statements
-                    outputs.file(new File(extension.dataDir.get(), 'scoverage.coverage'))
+                    outputs.file(new File(scoverageDataDir.get(), 'scoverage.coverage'))
 
                     dependsOn project.configurations[CONFIGURATION_NAME]
                     def scoverageClasspath = project.configurations[CONFIGURATION_NAME]
@@ -224,8 +231,8 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                         }
                     }
                 } else {
-                    parameters.add("-sourceroot:${project.rootDir.absolutePath}".toString())
-                    parameters.add("-coverage-out:${extension.dataDir.get().absolutePath}".toString())
+                    parameters.add("-sourceroot:${projectRootDir.absolutePath}".toString())
+                    parameters.add("-coverage-out:${scoverageDataDir.get().absolutePath}".toString())
                     if (extension.excludedPackages.get()) {
                         def packages = extension.excludedPackages.get().join(',')
                         parameters.add("-coverage-exclude-classlikes:$packages".toString())
@@ -240,11 +247,6 @@ class ScoveragePlugin implements Plugin<PluginAware> {
 
             def pruneIdenticalScoverageClasses = project.tasks.register('pruneIdenticalScoverageClasses', PruneIdenticalScoverageClassesTask) {
                 dependsOn compileTask
-                onlyIf {
-                    resolveScalaVersions(project).majorVersion < 3 &&
-                            originalCompileTask.destinationDirectory.get().asFile.exists() &&
-                            compileTask.destinationDirectory.get().asFile.exists()
-                }
                 originalClassesDirectory.set(originalCompileTask.destinationDirectory)
                 instrumentedClassesDirectory.set(compileTask.destinationDirectory)
             }
@@ -253,7 +255,9 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 doFirst {
                     destinationDirectory.get().getAsFile().deleteDir()
                 }
-                finalizedBy(pruneIdenticalScoverageClasses)
+                if (scalaVersion.majorVersion < 3) {
+                    finalizedBy(pruneIdenticalScoverageClasses)
+                }
             }
 
             if (!project.subprojects.empty) {
@@ -263,7 +267,10 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                         scoverageRunner,
                         detectedSourceEncoding,
                         globalReportTask,
-                        globalCheckTask
+                        globalCheckTask,
+                        scoverageDataDir,
+                        projectRootDir,
+                        hasScoverageSubproject
                 )
             }
         }
@@ -274,7 +281,10 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                                           ScoverageRunner scoverageRunner,
                                           String detectedSourceEncoding,
                                           TaskProvider<ScoverageAggregate> globalReportTask,
-                                          TaskProvider<CheckScoverageTask> globalCheckTask) {
+                                          TaskProvider<CheckScoverageTask> globalCheckTask,
+                                          org.gradle.api.provider.Property<File> scoverageDataDir,
+                                          File projectRootDir,
+                                          org.gradle.api.provider.Property<Boolean> hasScoverageSubproject) {
         def aggregatedSources = project.objects.fileCollection()
         if (project.plugins.hasPlugin(ScalaPlugin)) {
             aggregatedSources.from(project.sourceSets.getByName(SourceSet.MAIN_SOURCE_SET_NAME).scala.sourceDirectories)
@@ -286,16 +296,14 @@ class ScoveragePlugin implements Plugin<PluginAware> {
             reportDir.set(extension.reportDir.get())
             sources.set(aggregatedSources)
             sourceEncoding.set(detectedSourceEncoding)
-            sourceRoot.set(project.rootDir)
+            sourceRoot.set(projectRootDir)
             deleteReportsOnAggregation.set(extension.deleteReportsOnAggregation.get())
             coverageOutputCobertura.set(extension.coverageOutputCobertura.get())
             coverageOutputXML.set(extension.coverageOutputXML.get())
             coverageOutputHTML.set(extension.coverageOutputHTML.get())
             coverageDebug.set(extension.coverageDebug.get())
-            dirsToAggregateFrom.add(extension.dataDir.get())
-            onlyIf {
-                project.subprojects.any { it.plugins.hasPlugin(ScoveragePlugin) }
-            }
+            dirsToAggregateFrom.add(scoverageDataDir.get())
+            onlyIf { hasScoverageSubproject.get() }
         }
 
         globalCheckTask.configure {
@@ -309,6 +317,7 @@ class ScoveragePlugin implements Plugin<PluginAware> {
                 }
             }
             sub.plugins.withId('org.scoverage') {
+                hasScoverageSubproject.set(true)
                 aggregateTask.configure { aggregationTask ->
                     aggregationTask.dependsOn(sub.tasks.named(REPORT_NAME))
                     aggregatedSources.from(
@@ -320,9 +329,10 @@ class ScoveragePlugin implements Plugin<PluginAware> {
         }
     }
 
-    private void configureCheckTask(Project project, ScoverageExtension extension,
+    private void configureCheckTask(ScoverageExtension extension,
                                     TaskProvider<CheckScoverageTask> globalCheckTask,
-                                    TaskProvider<ScoverageAggregate> globalReportTask) {
+                                    TaskProvider<ScoverageAggregate> globalReportTask,
+                                    org.gradle.api.provider.Property<File> scoverageReportDir) {
 
         if (extension.checks.isEmpty()) {
             extension.check {
@@ -336,8 +346,8 @@ class ScoveragePlugin implements Plugin<PluginAware> {
         globalCheckTask.configure {
             group = 'verification'
             dependsOn globalReportTask
-            onlyIf { extension.reportDir.get().list() }
-            reportDir.set(extension.reportDir.get())
+            onlyIf { scoverageReportDir.get().list() }
+            reportDir.set(scoverageReportDir.get())
             checks.set(extension.checks.collect { config ->
                 new CheckScoverageTask.CheckSpec(config.coverageType.configurationName, config.minimumRate)
             })

@@ -19,7 +19,7 @@ class ScoverageTestSupport {
                                       SourceSet instrumentedSourceSet,
                                       String scoverageConfigurationName,
                                       def compileTask,
-                                      ScoverageExtension extension) {
+                                      org.gradle.api.provider.Property<File> dataDir) {
         def scoverageTestName = scoverageTestTaskName(testTask.name)
         if (project.tasks.names.contains(scoverageTestName)) {
             return
@@ -48,7 +48,7 @@ class ScoverageTestSupport {
             }
             scoverageTest.mustRunAfter(compileTask)
             scoverageTest.outputs.upToDateWhen {
-                extension.dataDir.get().listFiles(new FilenameFilter() {
+                dataDir.get().listFiles(new FilenameFilter() {
                     @Override
                     boolean accept(File dir, String name) {
                         return name.startsWith("scoverage.measurements.")

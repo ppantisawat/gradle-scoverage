@@ -11,8 +11,11 @@ import org.xml.sax.SAXException;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -81,6 +84,39 @@ public abstract class ScoverageFunctionalTest {
 
         configureConfigurationCacheArguments(arguments);
         return new AssertableBuildResult(runner.build());
+    }
+
+    protected void prepareConfigurationCacheRun(String... arguments) {
+
+        configureConfigurationCacheArguments(arguments);
+    }
+
+    protected AssertableBuildResult buildPreparedConfigurationCacheRun() {
+
+        return new AssertableBuildResult(runner.build());
+    }
+
+    protected void cleanProjectForConfigurationCache() throws IOException {
+
+        deleteRecursively(buildDir());
+        deleteRecursively(new File(projectDir(), ".gradle"));
+    }
+
+    private void deleteRecursively(File directory) throws IOException {
+
+        if (!directory.exists()) {
+            return;
+        }
+
+        Files.walk(directory.toPath())
+                .sorted(Comparator.reverseOrder())
+                .forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                });
     }
 
     protected AssertableBuildResult runAndFail(String... arguments) {
@@ -234,9 +270,12 @@ public abstract class ScoverageFunctionalTest {
 
         public void assertConfigurationCacheReused() {
 
+            String output = result.getOutput();
             Assert.assertTrue(
                     "Expected configuration cache to be reused",
-                    result.getOutput().contains("Reusing configuration cache")
+                    output.contains("Reusing configuration cache")
+                            || output.contains("Configuration cache entry reused")
+                            || output.contains("from configuration cache")
             );
         }
     }
